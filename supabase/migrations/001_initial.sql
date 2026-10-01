@@ -1,0 +1,18 @@
+create extension if not exists pgcrypto;
+create type user_role as enum ('admin','user');
+create type deal_priority as enum ('low','normal','high','urgent');
+create type field_type as enum ('text','textarea','number','money','date','checkbox','select');
+create table profiles (id uuid primary key references auth.users on delete cascade, name text not null, role user_role not null default 'user', created_at timestamptz not null default now());
+create table pipelines (id uuid primary key default gen_random_uuid(), name text not null, position int not null default 0, created_at timestamptz not null default now());
+create table pipeline_stages (id uuid primary key default gen_random_uuid(), pipeline_id uuid not null references pipelines on delete cascade, name text not null, color text not null default '#3b82f6', position int not null default 0, is_won boolean not null default false, is_lost boolean not null default false);
+create table deals (id uuid primary key default gen_random_uuid(), title text not null, client_name text not null, phone text not null, phone_normalized text not null, email text, pipeline_id uuid not null references pipelines, stage_id uuid not null references pipeline_stages, amount numeric(14,2) not null default 0, priority deal_priority not null default 'normal', next_contact_at timestamptz, assignee_id uuid references profiles, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
+create index deals_phone_normalized_idx on deals(phone_normalized);
+create index deals_stage_idx on deals(stage_id);
+create table tags (id uuid primary key default gen_random_uuid(), name text not null unique, color text not null);
+create table deal_tags (deal_id uuid references deals on delete cascade, tag_id uuid references tags on delete cascade, primary key(deal_id,tag_id));
+create table custom_field_definitions (id uuid primary key default gen_random_uuid(), name text not null, field_type field_type not null, options jsonb, position int not null default 0);
+create table custom_field_values (deal_id uuid references deals on delete cascade, field_id uuid references custom_field_definitions on delete cascade, value jsonb, primary key(deal_id,field_id));
+create table tasks (id uuid primary key default gen_random_uuid(), deal_id uuid not null references deals on delete cascade, title text not null, note text, due_at timestamptz not null, completed_at timestamptz, created_at timestamptz not null default now());
+create table comments (id uuid primary key default gen_random_uuid(), deal_id uuid not null references deals on delete cascade, author_id uuid references profiles, body text not null, created_at timestamptz not null default now());
+create table deal_events (id uuid primary key default gen_random_uuid(), deal_id uuid not null references deals on delete cascade, actor_id uuid references profiles, event_type text not null, payload jsonb not null default '{}', created_at timestamptz not null default now());
+alter table pipelines enable row level security; alter table pipeline_stages enable row level security; alter table deals enable row level security; alter table tags enable row level security; alter table deal_tags enable row level security; alter table custom_field_definitions enable row level security; alter table custom_field_values enable row level security; alter table tasks enable row level security; alter table comments enable row level security; alter table deal_events enable row level security;
