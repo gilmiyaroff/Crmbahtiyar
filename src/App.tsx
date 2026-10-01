@@ -1,0 +1,19 @@
+import { useEffect, useState } from "react";
+import { ArrowRight, LockKeyhole } from "lucide-react";
+import { CRMProvider, useCRM } from "./store";
+import { Layout } from "./components/Layout";
+import { DealDrawer } from "./components/DealDrawer";
+import { Dashboard } from "./views/Dashboard";
+import { Deals } from "./views/Deals";
+import { Tasks } from "./views/Tasks";
+import { Analytics } from "./views/Analytics";
+import { Settings } from "./views/Settings";
+import type { Deal, View } from "./types";
+import "./styles.css";
+
+function CRMApp(){const{state,addDeal}=useCRM();const[view,setView]=useState<View>("dashboard");const[query,setQuery]=useState("");const[selectedId,setSelectedId]=useState<string>();const[dark,setDark]=useState(()=>localStorage.getItem("leadflow-theme")==="dark");const[logged,setLogged]=useState(()=>sessionStorage.getItem("leadflow-session")==="1");useEffect(()=>localStorage.setItem("leadflow-theme",dark?"dark":"light"),[dark]);const selected=state.deals.find(d=>d.id===selectedId);
+  useEffect(()=>{const context=(document as Document & {modelContext?:{registerTool:(tool:unknown,options?:{signal:AbortSignal})=>void|Promise<void>}}).modelContext;if(!context?.registerTool)return;const c=new AbortController();void Promise.resolve(context.registerTool({name:"create_crm_deal",title:"Создать сделку",description:"Создаёт сделку в первой стадии основной воронки Leadflow.",inputSchema:{type:"object",properties:{clientName:{type:"string"},title:{type:"string"},phone:{type:"string"},amount:{type:"number"}},required:["clientName","title","phone"],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:(raw:unknown)=>{const x=raw as {clientName?:string;title?:string;phone?:string;amount?:number};if(!x.clientName||!x.title||!x.phone)throw new Error("clientName, title and phone are required");const p=state.pipelines[0];addDeal({clientName:x.clientName,title:x.title,phone:x.phone,amount:x.amount||0,pipelineId:p.id,stageId:p.stages[0].id});return{status:"created",clientName:x.clientName};}},{signal:c.signal})).catch(()=>{});return()=>c.abort()},[addDeal,state.pipelines]);
+  if(!logged)return <Login onLogin={()=>{sessionStorage.setItem("leadflow-session","1");setLogged(true)}}/>;
+  return <Layout view={view} setView={setView} query={query} setQuery={setQuery} dark={dark} setDark={setDark} onLogout={()=>{sessionStorage.removeItem("leadflow-session");setLogged(false)}}>{view==="dashboard"&&<Dashboard goDeals={()=>setView("deals")}/>} {view==="deals"&&<Deals query={query} onSelect={(d:Deal)=>setSelectedId(d.id)}/>} {view==="tasks"&&<Tasks/>} {view==="analytics"&&<Analytics/>} {view==="settings"&&<Settings/>}{selected&&<DealDrawer deal={selected} onClose={()=>setSelectedId(undefined)}/>}</Layout>}
+function Login({onLogin}:{onLogin:()=>void}){return <div className="login"><div className="login-panel"><span className="brandmark large">L</span><span className="eyebrow">Leadflow CRM</span><h1>Продажи под контролем.<br/>Без лишнего шума.</h1><p>Демонстрационная версия уже заполнена: откройте пространство и попробуйте основные сценарии.</p><div className="demo-user"><span className="avatar">АВ</span><div><strong>Алексей Воронцов</strong><small>Администратор · demo</small></div><LockKeyhole/></div><button className="button login-button" onClick={onLogin}>Войти в демо <ArrowRight/></button><small>Пароль не требуется. Данные сохраняются только в этом браузере.</small></div><div className="login-art"><div className="art-card"><span>Новая заявка</span><strong>Анна Соколова</strong><p>Настройка рекламы</p><div><i/>Следующий контакт сегодня, 16:00</div></div><div className="art-orbit one"/><div className="art-orbit two"/></div></div>}
+export default function App(){return <CRMProvider><CRMApp/></CRMProvider>}
